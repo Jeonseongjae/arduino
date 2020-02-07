@@ -1,0 +1,136 @@
+#include "DHT.h"
+
+#include <Time.h>
+#include <TimeLib.h>
+#include <DS1302.h>
+
+#include <LiquidCrystal_I2C.h> 
+#include <Wire.h>
+
+
+#define DHTPIN 7        // SDA 핀의 설정
+#define DHTTYPE DHT22   // DHT22 (AM2302) 센서종류 설정
+DHT dht(DHTPIN, DHTTYPE);
+
+#define SCK_PIN 8
+#define IO_PIN  9
+#define RST_PIN 10
+DS1302 rtc(RST_PIN, IO_PIN, SCK_PIN); //rct모듈 RST, DAT, CLK 핀 설정
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+int relay1 = 2; //릴레이1 핀설정
+int relay2 = 3; //릴레이2 핀설정
+int relay3 = 4; //릴레이3 핀설정
+int relay4 = 5; //릴레이4 핀설정
+
+ unsigned long t1_prev = 0; //t1_prev 변수 선언=이전시간 저장
+ const unsigned t1_delay = 1000; //t1_delay 변수 선언=주기 값 저장
+
+
+ 
+void setup() {
+  lcd.init(); //lcd초기화
+  lcd.backlight(); //lcd백라이트 키기
+  
+  Serial.begin(9600); 
+  Serial.println("Serial begin!!");
+ 
+  dht.begin();
+  
+
+  rtc.halt(false);
+  rtc.writeProtect(false); //시각 설정후 rtc.writeProtect를 false로 업로드 한 뒤 true로 다시 업로드
+
+  rtc.setDOW(MONDAY);
+  rtc.setTime(23, 15, 00);
+  rtc.setDate(2, 8, 2020);  //현재 시각설정
+  
+
+   pinMode (relay1, OUTPUT);
+   pinMode (relay2, OUTPUT);
+   pinMode (relay3, OUTPUT);
+   pinMode (relay4, OUTPUT); //릴레이 모두 output으로 설정
+ 
+   digitalWrite (relay1, HIGH);
+   digitalWrite (relay2, HIGH);
+   digitalWrite (relay3, HIGH);
+   digitalWrite (relay4, HIGH); //초기 릴레이 상태 모두 off
+}
+
+
+
+void loop() {
+
+
+  while(1)
+  {
+    Serial.print("It is ");
+    Serial.print(rtc.getDOWStr());
+    Serial.print(" ");
+    Serial.print(rtc.getDateStr());
+    Serial.print(" ");
+    Serial.print("and the time is: ");
+    Serial.println(rtc.getTimeStr()); //씨리얼 모니터에 시각 출력
+ 
+    delay (1000);
+  }
+
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();     // h, t를 각각 습도와 온도 변수로 정의
+
+  unsigned long t1_now = millis();     //t1_now에 밀리스를 선언
+
+  if (t1_now - t1_prev >= t1_delay)
+  {
+  if (isnan(t) || isnan(h)) {                      //t 또는 h 가 숫자가 아닐 경우
+    Serial.println("Failed to read from DHT");
+
+    Serial.print(rtc.getDateStr());
+    Serial.print(" ");
+    Serial.println(rtc.getDOWStr());
+    Serial.println(rtc.getTimeStr());
+    }                                           //온습도 값 읽기 실패시 씨리얼 모니터에 출력
+  else{                                            // 값 측정 성공할 시
+    Serial.print("Humidity: "); 
+    Serial.print(h);
+    Serial.print(" %\t");
+    Serial.print("Temperature: "); 
+    Serial.print(t);
+    Serial.println(" *C");
+
+    Serial.print(rtc.getDateStr());
+    Serial.print(" ");
+    Serial.println(rtc.getDOWStr());
+    Serial.println(rtc.getTimeStr());
+  }                                           //씨리얼 모니터에 출력
+  
+    lcd.setCursor(0,0);           //lcd 0번째 줄 0번째 셀부터 입력
+    lcd.print(" Temp: ");
+    lcd.print(t);
+    lcd.print(" C");
+    lcd.setCursor(0,1);           //lcd 1번째 줄 0번째 셀부터 입력
+    lcd.print("  Hum: "); 
+    lcd.print(h);
+    lcd.print(" %");
+      t1_prev = t1_now ; 
+  }
+if (t<18)
+{
+  digitalWrite (relay3, LOW); // 릴레이 ON
+}
+else if (t>20)
+{
+  digitalWrite (relay3, HIGH); // 릴레이 OFF
+}
+
+if (rtc.getTimeStr()==(9, 00, 00))
+{
+  digitalWrite (relay2, LOW);
+  }
+
+else if (rtc.getTimeStr()==(24, 00, 00))
+{
+  digitalWrite (relay2, HIGH);
+  }
+}
